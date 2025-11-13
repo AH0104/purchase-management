@@ -54,7 +54,7 @@ export async function POST() {
 
     do {
       const listResponse = await drive.changes.list({
-        pageToken,
+        pageToken: pageToken ?? undefined,
         fields: "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,parents,md5Checksum,webViewLink,size,createdTime,modifiedTime))",
         includeItemsFromAllDrives: true,
         supportsAllDrives: true,
