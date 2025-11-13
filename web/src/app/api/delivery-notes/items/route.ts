@@ -88,7 +88,9 @@ export async function GET(request: Request) {
       throw error;
     }
 
-    const records = (data as RawItem[]).map((item) => {
+    const rows = (data ?? []) as unknown as RawItem[];
+
+    const records = rows.map((item) => {
       const note = item.delivery_notes;
       const supplierName = note?.suppliers?.supplier_name ?? null;
       return {
