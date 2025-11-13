@@ -77,7 +77,7 @@ export async function PUT(
   } catch (error) {
     console.error(error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "入力データが不正です", details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "入力データが不正です", details: error.issues }, { status: 400 });
     }
     const message = error instanceof Error ? error.message : "更新処理でエラーが発生しました";
     return NextResponse.json({ error: message }, { status: 500 });
