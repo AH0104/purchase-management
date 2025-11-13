@@ -121,7 +121,7 @@ export async function POST() {
         }
       }
 
-      pageToken = nextPageToken;
+      pageToken = (nextPageToken ?? null) as string | null;
     } while (nextPageToken);
 
     const finalPageToken = nextPageToken ?? pageToken ?? startPageToken ?? null;
