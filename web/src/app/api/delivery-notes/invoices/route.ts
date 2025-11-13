@@ -101,7 +101,9 @@ export async function GET(request: Request) {
       }
     >();
 
-    (data as RawInvoiceItem[]).forEach((item) => {
+    const rows = (data ?? []) as unknown as RawInvoiceItem[];
+
+    rows.forEach((item) => {
       const note = item.delivery_notes;
       if (!note) return;
 
