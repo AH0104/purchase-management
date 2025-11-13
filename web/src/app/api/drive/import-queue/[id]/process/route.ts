@@ -171,5 +171,3 @@ export async function POST(request: NextRequest, context: { params: Promise<Rout
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-

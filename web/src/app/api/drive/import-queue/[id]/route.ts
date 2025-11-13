@@ -117,5 +117,3 @@ export async function PATCH(request: NextRequest, context: { params: Promise<Rou
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
 }
-
-
