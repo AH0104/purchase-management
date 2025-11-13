@@ -13,8 +13,20 @@ type PatchBody = {
   errorMessage?: string | null;
 };
 
-function extractId(params: { id?: string } | undefined, request: NextRequest): string | undefined {
-  if (params?.id) return params.id;
+type RouteParams = { id: string };
+
+function isPromise<T>(value: unknown): value is Promise<T> {
+  return typeof value === "object" && value !== null && typeof (value as Promise<T>).then === "function";
+}
+
+async function extractId(
+  params: RouteParams | Promise<RouteParams> | undefined,
+  request: NextRequest
+): Promise<string | undefined> {
+  if (params) {
+    const resolved = isPromise<RouteParams>(params) ? await params : params;
+    if (resolved?.id) return resolved.id;
+  }
   const segments = request.nextUrl.pathname.split("/").filter(Boolean);
   const index = segments.indexOf("import-queue");
   if (index >= 0 && segments.length > index + 1) {
@@ -23,9 +35,9 @@ function extractId(params: { id?: string } | undefined, request: NextRequest): s
   return undefined;
 }
 
-export async function GET(request: NextRequest, context: { params: { id?: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<RouteParams> }) {
   try {
-    const rawId = extractId(context.params, request);
+    const rawId = await extractId(context.params, request);
     if (!rawId) {
       return NextResponse.json({ error: "ID が指定されていません" }, { status: 400 });
     }
@@ -46,9 +58,9 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   }
 }
 
-export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<RouteParams> }) {
   try {
-    const rawId = extractId(context.params, request);
+    const rawId = await extractId(context.params, request);
     if (!rawId) {
       return NextResponse.json({ error: "ID が指定されていません" }, { status: 400 });
     }

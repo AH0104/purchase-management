@@ -38,8 +38,20 @@ async function fetchTemplate(
   return data?.[0] ?? null;
 }
 
-function extractId(params: { id?: string } | undefined, request: NextRequest): string | undefined {
-  if (params?.id) return params.id;
+type RouteParams = { id: string };
+
+function isPromise<T>(value: unknown): value is Promise<T> {
+  return typeof value === "object" && value !== null && typeof (value as Promise<T>).then === "function";
+}
+
+async function extractId(
+  params: RouteParams | Promise<RouteParams> | undefined,
+  request: NextRequest
+): Promise<string | undefined> {
+  if (params) {
+    const resolved = isPromise<RouteParams>(params) ? await params : params;
+    if (resolved?.id) return resolved.id;
+  }
   const segments = request.nextUrl.pathname.split("/").filter(Boolean);
   const index = segments.indexOf("import-queue");
   if (index >= 0 && segments.length > index + 1) {
@@ -48,8 +60,8 @@ function extractId(params: { id?: string } | undefined, request: NextRequest): s
   return undefined;
 }
 
-export async function POST(request: NextRequest, context: { params: { id?: string } }) {
-  const rawId = extractId(context.params, request);
+export async function POST(request: NextRequest, context: { params: Promise<RouteParams> }) {
+  const rawId = await extractId(context.params, request);
   const id = Number(rawId ?? "");
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: "ID が不正です", rawId: rawId ?? null }, { status: 400 });
@@ -84,7 +96,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     const buffer = await downloadFile(item.file_id);
     let result: UploadParseResult | null = null;
 
-  if (fileType === "pdf") {
+    if (fileType === "pdf") {
       const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
       result = await parsePdfWithGemini({
         buffer: arrayBuffer,
@@ -93,22 +105,22 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       });
     } else {
       const template = await fetchTemplate(item.supplier_id, fileType);
-    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-    const pseudoFile = {
-      name: item.file_name,
-      type: item.mime_type ?? undefined,
-      arrayBuffer: async () => arrayBuffer,
-    } as File;
+      const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+      const pseudoFile = {
+        name: item.file_name,
+        type: item.mime_type ?? undefined,
+        arrayBuffer: async () => arrayBuffer,
+      } as File;
 
       if (fileType === "excel") {
         result = await parseExcelFile({
-        file: pseudoFile,
+          file: pseudoFile,
           supplierId: item.supplier_id,
           template: template ?? undefined,
         });
       } else if (fileType === "csv") {
         result = await parseCsvFile({
-        file: pseudoFile,
+          file: pseudoFile,
           supplierId: item.supplier_id,
           template: template ?? undefined,
         });
