@@ -148,9 +148,12 @@ export async function GET() {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 10);
 
-    const smaregiLastSyncedAt = [latestDepartmentSync, latestProductSync]
-      .filter((value): value is string => typeof value === "string")
-      .sort((a, b) => (a < b ? 1 : -1))[0] ?? null;
+    const smaregiCandidates = [latestDepartmentSync, latestProductSync].filter(
+      (value) => typeof value === "string"
+    ) as string[];
+
+    const smaregiLastSyncedAt =
+      smaregiCandidates.length > 0 ? smaregiCandidates.sort((a, b) => (a < b ? 1 : -1))[0] : null;
 
     return NextResponse.json({
       monthlyTotal: totalAmount,
