@@ -3,6 +3,7 @@ import { getDriveClient, getDriveFolders, ensureStartPageToken, buildFilePath, i
 import { fetchDriveSyncState, listDriveImportQueue, upsertDriveQueueItem, upsertDriveSyncState } from "@/lib/drive/db";
 import { supabase } from "@/lib/supabaseClient";
 import type { DriveImportStatus } from "@/types/drive";
+import type { drive_v3 } from "googleapis";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ export async function POST() {
     let newStartPageToken: string | undefined;
 
     do {
-      const response = await drive.changes.list({
+      const listResponse = await drive.changes.list({
         pageToken,
         fields: "nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,parents,md5Checksum,webViewLink,size,createdTime,modifiedTime))",
         includeItemsFromAllDrives: true,
@@ -61,7 +62,7 @@ export async function POST() {
         spaces: "drive",
         pageSize: 100,
       });
-      const responseData = response.data;
+      const responseData = listResponse.data as drive_v3.Schema$ChangeList;
 
       nextPageToken = responseData.nextPageToken ?? undefined;
       newStartPageToken = responseData.newStartPageToken ?? undefined;
