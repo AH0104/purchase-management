@@ -61,11 +61,12 @@ export async function POST() {
         spaces: "drive",
         pageSize: 100,
       });
+      const responseData = response.data;
 
-      nextPageToken = response.data.nextPageToken ?? undefined;
-      newStartPageToken = response.data.newStartPageToken ?? undefined;
+      nextPageToken = responseData.nextPageToken ?? undefined;
+      newStartPageToken = responseData.newStartPageToken ?? undefined;
 
-      const changes = response.data.changes ?? [];
+      const changes = responseData.changes ?? [];
       for (const change of changes) {
         if (!change.fileId) continue;
 
