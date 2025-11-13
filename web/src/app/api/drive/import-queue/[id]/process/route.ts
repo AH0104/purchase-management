@@ -97,7 +97,7 @@ export async function POST(request: NextRequest, context: { params: Promise<Rout
     let result: UploadParseResult | null = null;
 
     if (fileType === "pdf") {
-      const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+      const arrayBuffer = new Uint8Array(buffer).buffer;
       result = await parsePdfWithGemini({
         buffer: arrayBuffer,
         supplierId: item.supplier_id,
