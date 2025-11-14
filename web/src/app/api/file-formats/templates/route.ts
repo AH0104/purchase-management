@@ -125,9 +125,9 @@ export async function POST(request: Request) {
     console.error("エラーの詳細:", JSON.stringify(error, null, 2));
     
     if (error instanceof ZodError) {
-      return NextResponse.json({ 
-        error: "入力データが不正です", 
-        details: error.errors 
+      return NextResponse.json({
+        error: "入力データが不正です",
+        details: error.issues,
       }, { status: 400 });
     }
     
