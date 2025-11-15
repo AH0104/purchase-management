@@ -154,7 +154,7 @@ export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
   const results: SmaregiDepartment[] = [];
 
   while (true) {
-    const data = await smaregiGraphQL<DepartmentPage>(DEPARTMENT_QUERY, { cursor });
+    const data: DepartmentPage = await smaregiGraphQL<DepartmentPage>(DEPARTMENT_QUERY, { cursor });
     const page = data.departments;
     if (!page) break;
 
