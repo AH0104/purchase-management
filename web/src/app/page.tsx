@@ -198,6 +198,44 @@ export default function Home() {
           <div className="h-[300px] flex items-center justify-center text-slate-400">データがありません</div>
         )}
       </div>
+      <div className="rounded-lg border bg-white p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">直近アップロード</h2>
+          <Link href="/data" className="text-sm text-teal-600 hover:text-teal-700">
+            すべて見る →
+          </Link>
+        </div>
+        {stats.recentUploads.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="text-left p-3">アップロード日時</th>
+                  <th className="text-left p-3">仕入先</th>
+                  <th className="text-left p-3">ファイル名</th>
+                  <th className="text-left p-3">納品日</th>
+                  <th className="text-right p-3">金額</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentUploads.map((upload) => (
+                  <tr key={upload.id} className="border-t hover:bg-slate-50">
+                    <td className="p-3">{formatDate(upload.created_at)}</td>
+                    <td className="p-3">{upload.supplier_name || "-"}</td>
+                    <td className="p-3 max-w-xs truncate" title={upload.original_file_name}>
+                      {upload.original_file_name}
+                    </td>
+                    <td className="p-3">{formatDate(upload.delivery_date)}</td>
+                    <td className="p-3 text-right font-medium">{formatCurrency(upload.total_amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-400">アップロード履歴がありません</div>
+        )}
+      </div>
       <Link
         href="/upload"
         className="fixed right-6 bottom-6 h-12 px-6 rounded-full bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-colors flex items-center gap-2"
