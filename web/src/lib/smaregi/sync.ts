@@ -46,12 +46,57 @@ async function upsertProducts(products: SmaregiProduct[]) {
   }
 }
 
+/**
+ * 指定された商品コードのうち、未登録のもののみスマレジから部門情報を取得して登録
+ * @param productCodes 同期対象の商品コード配列
+ * @returns 新規登録された商品数
+ */
+export async function syncNewProductDepartments(productCodes: string[]): Promise<number> {
+  if (productCodes.length === 0) return 0;
+
+  // 空文字や null を除外して正規化
+  const normalizedCodes = Array.from(
+    new Set(
+      productCodes
+        .filter((code): code is string => typeof code === "string" && code.trim() !== "")
+        .map((code) => code.trim())
+    )
+  );
+
+  if (normalizedCodes.length === 0) return 0;
+
+  // 既に登録済みの商品コードを取得
+  const { data: existingProducts, error: existingError } = await supabase
+    .from("smaregi_products")
+    .select("product_code")
+    .in("product_code", normalizedCodes);
+
+  if (existingError) {
+    throw new Error(`Failed to check existing products: ${existingError.message}`);
+  }
+
+  const existingCodes = new Set((existingProducts || []).map((p) => p.product_code));
+
+  // 未登録の商品コードのみ抽出
+  const newCodes = normalizedCodes.filter((code) => !existingCodes.has(code));
+
+  if (newCodes.length === 0) {
+    return 0; // 全て登録済み
+  }
+
+  // スマレジAPIから未登録商品の部門情報を取得
+  const products = await fetchProductsByCodes(newCodes);
+  await upsertProducts(products);
+
+  return products.length;
+}
+
 export async function syncSmaregi(): Promise<SyncSummary> {
   const [departments] = await Promise.all([fetchAllDepartments()]);
 
   await upsertDepartments(departments);
 
-  // 仕入データに存在する商品コードから部門情報を取得
+  // 仕入データに存在する商品コードから部門情報を取得（差分のみ）
   const { data: productCodeRows, error: productCodeError } = await supabase
     .from("delivery_note_items")
     .select("product_code")
@@ -66,12 +111,12 @@ export async function syncSmaregi(): Promise<SyncSummary> {
     new Set((productCodeRows || []).map((row) => row.product_code).filter((code): code is string => typeof code === "string" && code.trim() !== ""))
   );
 
-  const products = distinctCodes.length > 0 ? await fetchProductsByCodes(distinctCodes) : [];
-  await upsertProducts(products);
+  // 差分同期を利用（未登録商品のみ取得）
+  const newProductCount = await syncNewProductDepartments(distinctCodes);
 
   return {
     departmentCount: departments.length,
-    productCount: products.length,
+    productCount: newProductCount,
     syncedAt: new Date().toISOString(),
   };
 }
