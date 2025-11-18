@@ -201,6 +201,7 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
           results.push({
             productCode: originalCode,
             productId: product.productId ?? null,
+            productName: product.productName ?? null,
             departmentId: categoryId,
           });
           foundCodes.add(productCode);
