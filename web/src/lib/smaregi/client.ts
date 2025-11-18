@@ -90,7 +90,6 @@ export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
-        "X-Tenant-Id": config.tenantId,
       },
     });
 
@@ -161,7 +160,6 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
-        "X-Tenant-Id": config.tenantId,
       },
     });
 
