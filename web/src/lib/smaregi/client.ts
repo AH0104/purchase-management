@@ -59,12 +59,12 @@ async function requestAccessToken(): Promise<string> {
 }
 
 const PRODUCT_FIELDS = ["productId", "productCode", "departmentId"].join(",");
-const DEPARTMENT_FIELDS = ["departmentId", "departmentName", "parentDepartmentId", "level"].join(",");
+const CATEGORY_FIELDS = ["categoryId", "categoryName", "parentCategoryId", "level"].join(",");
 
-type SmaregiDepartmentResponse = {
-  departmentId?: string;
-  departmentName?: string;
-  parentDepartmentId?: string | null;
+type SmaregiCategoryResponse = {
+  categoryId?: string;
+  categoryName?: string;
+  parentCategoryId?: string | null;
   level?: number | null;
 };
 
@@ -80,13 +80,13 @@ export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
 
   while (true) {
     const params = new URLSearchParams({
-      fields: DEPARTMENT_FIELDS,
+      fields: CATEGORY_FIELDS,
       limit: limit.toString(),
       offset: offset.toString(),
     });
 
-    // POS API エンドポイント: /{contractId}/pos/departments
-    const response = await fetch(`${baseUrl}/${contractId}/pos/departments?${params.toString()}`, {
+    // POS API エンドポイント: /{contractId}/pos/categories
+    const response = await fetch(`${baseUrl}/${contractId}/pos/categories?${params.toString()}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -95,22 +95,22 @@ export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Smaregi departments request failed (${response.status}): ${text}`);
+      throw new Error(`Smaregi categories request failed (${response.status}): ${text}`);
     }
 
-    const payload = (await response.json()) as SmaregiDepartmentResponse[];
+    const payload = (await response.json()) as SmaregiCategoryResponse[];
 
     if (payload.length === 0) {
       break;
     }
 
-    payload.forEach((dept) => {
-      if (dept.departmentId && dept.departmentName) {
+    payload.forEach((cat) => {
+      if (cat.categoryId && cat.categoryName) {
         results.push({
-          departmentId: dept.departmentId,
-          name: dept.departmentName,
-          parentDepartmentId: dept.parentDepartmentId ?? null,
-          level: typeof dept.level === "number" ? dept.level : null,
+          departmentId: cat.categoryId,
+          name: cat.categoryName,
+          parentDepartmentId: cat.parentCategoryId ?? null,
+          level: typeof cat.level === "number" ? cat.level : null,
         });
       }
     });
