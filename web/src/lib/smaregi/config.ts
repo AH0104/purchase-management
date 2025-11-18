@@ -46,6 +46,6 @@ export function getSmaregiConfig(): SmaregiConfig {
     contractId,
     apiBaseUrl: getEnv("SMAREGI_API_BASE") || fallbackApiBase,
     authBaseUrl: getEnv("SMAREGI_AUTH_BASE") || fallbackAuthBase,
-    scope: getEnv("SMAREGI_SCOPE") || "pos.inventory.read",
+    scope: getEnv("SMAREGI_SCOPE") || "pos.products:read pos.departments:read",
   };
 }

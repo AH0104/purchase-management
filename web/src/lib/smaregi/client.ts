@@ -1,11 +1,6 @@
 import { getSmaregiConfig } from "./config";
 import { SmaregiDepartment, SmaregiProduct, SmaregiStockRecord } from "@/types/smaregi";
 
-type GraphQLResponse<T> = {
-  data?: T;
-  errors?: { message: string }[];
-};
-
 type TokenCache = {
   token: string;
   expiresAt: number; // epoch ms
@@ -63,112 +58,67 @@ async function requestAccessToken(): Promise<string> {
   return payload.access_token;
 }
 
-async function smaregiGraphQL<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-  const config = getSmaregiConfig();
-  const token = await requestAccessToken();
-  const response = await fetch(`${config.apiBaseUrl.replace(/\/$/, "")}/graphql`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Tenant-Id": config.tenantId,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Smaregi GraphQL request failed (${response.status}): ${text}`);
-  }
-
-  const payload = (await response.json()) as GraphQLResponse<T>;
-  if (payload.errors && payload.errors.length > 0) {
-    throw new Error(`Smaregi GraphQL error: ${payload.errors.map((e) => e.message).join(", ")}`);
-  }
-
-  if (!payload.data) {
-    throw new Error("Smaregi GraphQL response did not contain data");
-  }
-
-  return payload.data;
-}
-
-const DEPARTMENT_QUERY = /* GraphQL */ `
-  query Departments($cursor: String) {
-    departments(first: 200, after: $cursor) {
-      edges {
-        node {
-          departmentId
-          departmentName
-          name
-          parentDepartmentId
-          level
-        }
-        cursor
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-    }
-  }
-`;
-
 const PRODUCT_FIELDS = ["productId", "productCode", "departmentId"].join(",");
+const DEPARTMENT_FIELDS = ["departmentId", "departmentName", "parentDepartmentId", "level"].join(",");
 
-type DepartmentEdge = {
-  node: {
-    departmentId?: string;
-    departmentName?: string;
-    name?: string;
-    parentDepartmentId?: string | null;
-    level?: number | null;
-  };
-  cursor: string;
+type SmaregiDepartmentResponse = {
+  departmentId?: string;
+  departmentName?: string;
+  parentDepartmentId?: string | null;
+  level?: number | null;
 };
-
-type DepartmentPage = {
-  departments?: {
-    edges?: DepartmentEdge[];
-    nodes?: DepartmentEdge["node"][];
-    pageInfo?: { hasNextPage: boolean; endCursor?: string | null };
-  };
-};
-
-function normalizeDepartment(node: DepartmentEdge["node"]): SmaregiDepartment | null {
-  const departmentId = node.departmentId ?? null;
-  const name = node.name ?? node.departmentName ?? null;
-  if (!departmentId || !name) {
-    return null;
-  }
-  return {
-    departmentId,
-    name,
-    parentDepartmentId: node.parentDepartmentId ?? null,
-    level: typeof node.level === "number" ? node.level : null,
-  };
-}
 
 export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
-  let cursor: string | null = null;
+  const config = getSmaregiConfig();
+  const token = await requestAccessToken();
+  const baseUrl = config.apiBaseUrl.replace(/\/$/, "");
+  const contractId = config.contractId;
+  const limit = 200;
+  let offset = 0;
+
   const results: SmaregiDepartment[] = [];
 
   while (true) {
-    const data: DepartmentPage = await smaregiGraphQL<DepartmentPage>(DEPARTMENT_QUERY, { cursor });
-    const page = data.departments;
-    if (!page) break;
+    const params = new URLSearchParams({
+      fields: DEPARTMENT_FIELDS,
+      limit: limit.toString(),
+      offset: offset.toString(),
+    });
 
-    const nodes: DepartmentEdge["node"][] = page.edges?.map((edge) => edge.node) ?? page.nodes ?? [];
-    nodes.forEach((node) => {
-      const normalized = normalizeDepartment(node);
-      if (normalized) {
-        results.push(normalized);
+    // POS API エンドポイント: /{contractId}/pos/departments
+    const response = await fetch(`${baseUrl}/${contractId}/pos/departments?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Tenant-Id": config.tenantId,
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Smaregi departments request failed (${response.status}): ${text}`);
+    }
+
+    const payload = (await response.json()) as SmaregiDepartmentResponse[];
+
+    if (payload.length === 0) {
+      break;
+    }
+
+    payload.forEach((dept) => {
+      if (dept.departmentId && dept.departmentName) {
+        results.push({
+          departmentId: dept.departmentId,
+          name: dept.departmentName,
+          parentDepartmentId: dept.parentDepartmentId ?? null,
+          level: typeof dept.level === "number" ? dept.level : null,
+        });
       }
     });
 
-    if (page.pageInfo?.hasNextPage && page.pageInfo.endCursor) {
-      cursor = page.pageInfo.endCursor;
-    } else {
+    offset += payload.length;
+
+    if (payload.length < limit) {
       break;
     }
   }
@@ -192,6 +142,7 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
   const config = getSmaregiConfig();
   const token = await requestAccessToken();
   const baseUrl = config.apiBaseUrl.replace(/\/$/, "");
+  const contractId = config.contractId;
   const limit = 200;
   let offset = 0;
 
@@ -205,7 +156,8 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
       offset: offset.toString(),
     });
 
-    const response = await fetch(`${baseUrl}/products?${params.toString()}`, {
+    // POS API エンドポイント: /{contractId}/pos/products
+    const response = await fetch(`${baseUrl}/${contractId}/pos/products?${params.toString()}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
