@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { deliveryNoteSchema } from "@/lib/validators/delivery";
 import type { DeliveryNoteInput } from "@/types/delivery";
+import { syncNewProductDepartments } from "@/lib/smaregi/sync";
 
 export type SaveDeliveryNoteResult = {
   id: number;
@@ -53,6 +54,18 @@ export async function saveDeliveryNote(deliveryNote: DeliveryNoteInput): Promise
   if (itemsError) {
     await supabase.from("delivery_notes").delete().eq("id", noteInsert.id);
     throw itemsError;
+  }
+
+  // 納品データ保存後、新規商品コードの部門情報を自動同期（バックグラウンド処理）
+  const productCodes = parsed.items
+    .map((item) => item.productCode)
+    .filter((code): code is string => typeof code === "string" && code.trim() !== "");
+
+  if (productCodes.length > 0) {
+    // エラーが発生しても納品データ保存は成功させる
+    syncNewProductDepartments(productCodes).catch((error) => {
+      console.error("[saveDeliveryNote] Failed to sync product departments:", error);
+    });
   }
 
   return { id: noteInsert.id };

@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/smaregi/sync",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/drive/poll",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

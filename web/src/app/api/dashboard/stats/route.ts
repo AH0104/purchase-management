@@ -4,11 +4,19 @@ import { supabase } from "@/lib/supabaseClient";
 export const runtime = "nodejs";
 
 // GET: ダッシュボード統計情報取得
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const yearParam = searchParams.get("year");
+    const monthParam = searchParams.get("month");
+
+    // デフォルトは今月
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const targetYear = yearParam ? parseInt(yearParam, 10) : now.getFullYear();
+    const targetMonth = monthParam ? parseInt(monthParam, 10) : now.getMonth() + 1;
+
+    const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
+    const endOfMonth = new Date(targetYear, targetMonth, 0, 23, 59, 59);
 
     const startOfMonthStr = startOfMonth.toISOString().split("T")[0];
     const endOfMonthStr = endOfMonth.toISOString().split("T")[0];
