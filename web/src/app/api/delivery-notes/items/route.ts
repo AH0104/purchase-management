@@ -27,15 +27,6 @@ type RawItem = {
   } | null;
 };
 
-type SmaregiProductMapping = {
-  product_code: string;
-  department_id: string | null;
-};
-
-type SmaregiDepartment = {
-  department_id: string;
-  name: string;
-};
 
 export async function GET(request: Request) {
   try {
@@ -100,40 +91,21 @@ export async function GET(request: Request) {
 
     const rows = (data ?? []) as unknown as RawItem[];
 
-    // 商品コードから部門情報を取得
+    // 商品コードから部門名を取得（smaregi_products に直接保存されている）
     const productCodes = Array.from(new Set(rows.map((item) => item.product_code).filter(Boolean)));
     let departmentMap = new Map<string, string>(); // product_code -> department_name
 
     if (productCodes.length > 0) {
       const { data: productMappings } = await supabase
         .from("smaregi_products")
-        .select("product_code, department_id")
+        .select("product_code, department_name")
         .in("product_code", productCodes);
 
-      const departmentIds = Array.from(
-        new Set((productMappings ?? []).map((p: SmaregiProductMapping) => p.department_id).filter((id): id is string => Boolean(id)))
-      );
-
-      if (departmentIds.length > 0) {
-        const { data: departments } = await supabase
-          .from("smaregi_departments")
-          .select("department_id, name")
-          .in("department_id", departmentIds);
-
-        const deptNameMap = new Map<string, string>();
-        (departments ?? []).forEach((dept: SmaregiDepartment) => {
-          deptNameMap.set(dept.department_id, dept.name);
-        });
-
-        (productMappings ?? []).forEach((mapping: SmaregiProductMapping) => {
-          if (mapping.department_id) {
-            const deptName = deptNameMap.get(mapping.department_id);
-            if (deptName) {
-              departmentMap.set(mapping.product_code, deptName);
-            }
-          }
-        });
-      }
+      (productMappings ?? []).forEach((mapping: any) => {
+        if (mapping.department_name) {
+          departmentMap.set(mapping.product_code, mapping.department_name);
+        }
+      });
     }
 
     const records = rows.map((item) => {

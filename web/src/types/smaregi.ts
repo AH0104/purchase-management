@@ -8,7 +8,9 @@ export type SmaregiDepartment = {
 export type SmaregiProduct = {
   productCode: string;
   productId?: string | null;
+  productName?: string | null;
   departmentId?: string | null;
+  departmentName?: string | null;
 };
 
 export type SmaregiStockRecord = {
