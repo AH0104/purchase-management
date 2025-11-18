@@ -27,6 +27,16 @@ type RawItem = {
   } | null;
 };
 
+type SmaregiProductMapping = {
+  product_code: string;
+  department_id: string | null;
+};
+
+type SmaregiDepartment = {
+  department_id: string;
+  name: string;
+};
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -90,9 +100,46 @@ export async function GET(request: Request) {
 
     const rows = (data ?? []) as unknown as RawItem[];
 
+    // 商品コードから部門情報を取得
+    const productCodes = Array.from(new Set(rows.map((item) => item.product_code).filter(Boolean)));
+    let departmentMap = new Map<string, string>(); // product_code -> department_name
+
+    if (productCodes.length > 0) {
+      const { data: productMappings } = await supabase
+        .from("smaregi_products")
+        .select("product_code, department_id")
+        .in("product_code", productCodes);
+
+      const departmentIds = Array.from(
+        new Set((productMappings ?? []).map((p: SmaregiProductMapping) => p.department_id).filter((id): id is string => Boolean(id)))
+      );
+
+      if (departmentIds.length > 0) {
+        const { data: departments } = await supabase
+          .from("smaregi_departments")
+          .select("department_id, name")
+          .in("department_id", departmentIds);
+
+        const deptNameMap = new Map<string, string>();
+        (departments ?? []).forEach((dept: SmaregiDepartment) => {
+          deptNameMap.set(dept.department_id, dept.name);
+        });
+
+        (productMappings ?? []).forEach((mapping: SmaregiProductMapping) => {
+          if (mapping.department_id) {
+            const deptName = deptNameMap.get(mapping.department_id);
+            if (deptName) {
+              departmentMap.set(mapping.product_code, deptName);
+            }
+          }
+        });
+      }
+    }
+
     const records = rows.map((item) => {
       const note = item.delivery_notes;
       const supplierName = note?.suppliers?.supplier_name ?? null;
+      const departmentName = departmentMap.get(item.product_code) || null;
       return {
         id: item.id,
         deliveryNoteId: item.delivery_note_id,
@@ -102,6 +149,7 @@ export async function GET(request: Request) {
         supplierName,
         productCode: item.product_code,
         productName: item.product_name,
+        departmentName,
         quantity: item.quantity,
         unitPrice: item.unit_price,
         amount: item.amount,

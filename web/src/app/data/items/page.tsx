@@ -168,6 +168,7 @@ export default function ItemSearchPage() {
                 <th className="text-left p-3">仕入先</th>
                 <th className="text-left p-3">商品コード</th>
                 <th className="text-left p-3">商品名</th>
+                <th className="text-left p-3">部門</th>
                 <th className="text-right p-3">数量</th>
                 <th className="text-right p-3">単価</th>
                 <th className="text-right p-3">金額</th>
@@ -183,6 +184,15 @@ export default function ItemSearchPage() {
                   <td className="p-3">{item.supplierName || "-"}</td>
                   <td className="p-3">{item.productCode}</td>
                   <td className="p-3">{item.productName}</td>
+                  <td className="p-3">
+                    {(item as any).departmentName ? (
+                      <span className="inline-block px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800">
+                        {(item as any).departmentName}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">未分類</span>
+                    )}
+                  </td>
                   <td className="p-3 text-right">{item.quantity}</td>
                   <td className="p-3 text-right">{formatCurrency(item.unitPrice)}</td>
                   <td className="p-3 text-right">{formatCurrency(item.amount)}</td>

@@ -40,10 +40,20 @@ export default function Home() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // デフォルトは今月
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+
   useEffect(() => {
     const fetchStats = async () => {
+      setLoading(true);
       try {
-        const res = await fetch("/api/dashboard/stats");
+        const params = new URLSearchParams({
+          year: selectedYear.toString(),
+          month: selectedMonth.toString(),
+        });
+        const res = await fetch(`/api/dashboard/stats?${params.toString()}`);
         if (!res.ok) throw new Error("統計情報の取得に失敗しました");
         const data = await res.json();
         setStats(data);
@@ -55,7 +65,7 @@ export default function Home() {
     };
 
     fetchStats();
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -91,9 +101,39 @@ export default function Home() {
     );
   }
 
+  // 年の選択肢（過去5年分）
+  const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">ダッシュボード</h1>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h1 className="text-2xl font-semibold">ダッシュボード</h1>
+        <div className="flex gap-2 items-center">
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="h-10 border rounded px-3 bg-white"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}年
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="h-10 border rounded px-3 bg-white"
+          >
+            {months.map((month) => (
+              <option key={month} value={month}>
+                {month}月
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard title="今月の仕入総額" value={formatCurrency(stats.monthlyTotal)} />
         <SummaryCard title="未処理件数" value={`${stats.pendingCount}件`} />
