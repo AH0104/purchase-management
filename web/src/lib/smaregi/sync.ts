@@ -35,6 +35,7 @@ async function upsertProducts(products: SmaregiProduct[]) {
     product_id: product.productId ?? null,
     product_name: product.productName ?? null,
     department_id: product.departmentId ?? null,
+    department_name: product.departmentName ?? null,
     synced_at: new Date().toISOString(),
   }));
 

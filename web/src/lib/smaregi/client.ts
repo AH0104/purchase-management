@@ -217,10 +217,27 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
     }
   }
 
-  // 収集したカテゴリーIDから部門情報を取得して返す
-  // （sync.tsで部門情報を保存する）
+  // 収集したカテゴリーIDから部門情報を取得
   if (categoryIds.size > 0) {
     console.log(`[Smaregi] Fetching ${categoryIds.size} unique category/department names...`);
+
+    // 部門情報を取得して Map に格納
+    const departmentMap = new Map<string, string>();
+    for (const categoryId of Array.from(categoryIds)) {
+      const department = await fetchCategoryById(categoryId);
+      if (department) {
+        departmentMap.set(categoryId, department.name);
+      }
+    }
+
+    // 商品データに部門名を追加
+    results.forEach((product) => {
+      if (product.departmentId) {
+        product.departmentName = departmentMap.get(product.departmentId) || null;
+      }
+    });
+
+    // smaregi_departments テーブルにも保存
     await fetchAndStoreDepartments(Array.from(categoryIds));
   }
 
