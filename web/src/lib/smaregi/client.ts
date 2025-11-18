@@ -59,16 +59,66 @@ async function requestAccessToken(): Promise<string> {
 }
 
 const PRODUCT_FIELDS = ["productId", "productCode", "departmentId"].join(",");
-const CATEGORY_FIELDS = ["categoryId", "categoryName", "parentCategoryId", "level"].join(",");
 
-type SmaregiCategoryResponse = {
-  categoryId?: string;
-  categoryName?: string;
-  parentCategoryId?: string | null;
-  level?: number | null;
-};
-
+// 部門情報を取得（複数のエンドポイントを試す）
 export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
+  const config = getSmaregiConfig();
+  const token = await requestAccessToken();
+  const baseUrl = config.apiBaseUrl.replace(/\/$/, "");
+  const contractId = config.contractId;
+
+  // 試すエンドポイントのリスト
+  const endpoints = [
+    '/pos/divisions',      // 部門
+    '/pos/departments',    // 部門（英語）
+    '/pos/categories',     // カテゴリ
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`[Smaregi Debug] Trying endpoint: ${endpoint}`);
+
+      const params = new URLSearchParams({
+        limit: '10', // デバッグ用に少量取得
+        offset: '0',
+      });
+
+      const response = await fetch(`${baseUrl}/${contractId}${endpoint}?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as any;
+        console.log(`[Smaregi Debug] ${endpoint} response:`, JSON.stringify(payload, null, 2));
+
+        // レスポンスが配列で、要素がある場合
+        if (Array.isArray(payload) && payload.length > 0) {
+          console.log(`[Smaregi Debug] ${endpoint} first item fields:`, Object.keys(payload[0]));
+
+          // 部門データとして使えそうな場合は、全件取得して返す
+          const firstItem = payload[0];
+          if (firstItem.divisionId || firstItem.departmentId || firstItem.categoryId) {
+            console.log(`[Smaregi Debug] Using endpoint: ${endpoint}`);
+            return await fetchAllDepartmentsFromEndpoint(endpoint);
+          }
+        }
+      } else {
+        console.log(`[Smaregi Debug] ${endpoint} failed with status ${response.status}`);
+      }
+    } catch (error) {
+      console.log(`[Smaregi Debug] ${endpoint} error:`, error);
+    }
+  }
+
+  // どのエンドポイントも使えない場合は空配列を返す
+  console.warn('[Smaregi] No suitable department endpoint found');
+  return [];
+}
+
+async function fetchAllDepartmentsFromEndpoint(endpoint: string): Promise<SmaregiDepartment[]> {
   const config = getSmaregiConfig();
   const token = await requestAccessToken();
   const baseUrl = config.apiBaseUrl.replace(/\/$/, "");
@@ -80,13 +130,11 @@ export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
 
   while (true) {
     const params = new URLSearchParams({
-      fields: CATEGORY_FIELDS,
       limit: limit.toString(),
       offset: offset.toString(),
     });
 
-    // POS API エンドポイント: /{contractId}/pos/categories
-    const response = await fetch(`${baseUrl}/${contractId}/pos/categories?${params.toString()}`, {
+    const response = await fetch(`${baseUrl}/${contractId}${endpoint}?${params.toString()}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -94,23 +142,26 @@ export async function fetchAllDepartments(): Promise<SmaregiDepartment[]> {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Smaregi categories request failed (${response.status}): ${text}`);
+      break;
     }
 
-    const payload = (await response.json()) as SmaregiCategoryResponse[];
+    const payload = (await response.json()) as any[];
 
     if (payload.length === 0) {
       break;
     }
 
-    payload.forEach((cat) => {
-      if (cat.categoryId && cat.categoryName) {
+    payload.forEach((item: any) => {
+      const id = item.divisionId ?? item.departmentId ?? item.categoryId;
+      const name = item.divisionName ?? item.departmentName ?? item.categoryName ?? item.name;
+      const parentId = item.parentDivisionId ?? item.parentDepartmentId ?? item.parentCategoryId;
+
+      if (id && name) {
         results.push({
-          departmentId: cat.categoryId,
-          name: cat.categoryName,
-          parentDepartmentId: cat.parentCategoryId ?? null,
-          level: typeof cat.level === "number" ? cat.level : null,
+          departmentId: id,
+          name: name,
+          parentDepartmentId: parentId ?? null,
+          level: typeof item.level === "number" ? item.level : null,
         });
       }
     });
@@ -149,8 +200,8 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
   const foundCodes = new Set<string>();
 
   while (true) {
+    // まず全フィールドを取得してデバッグ（後で最適化）
     const params = new URLSearchParams({
-      fields: PRODUCT_FIELDS,
       limit: limit.toString(),
       offset: offset.toString(),
     });
@@ -168,16 +219,20 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
       throw new Error(`Smaregi product request failed (${response.status}): ${text}`);
     }
 
-    const payload = (await response.json()) as {
-      products?: Array<{ productId?: string; productCode?: string | null; departmentId?: string | null }>;
-    };
+    const payload = (await response.json()) as any;
 
-    const products = payload.products ?? [];
+    // デバッグ: 最初の商品のフィールドをログ出力
+    if (payload.length > 0 && offset === 0) {
+      console.log('[Smaregi Debug] First product fields:', Object.keys(payload[0]));
+      console.log('[Smaregi Debug] First product data:', JSON.stringify(payload[0], null, 2));
+    }
+
+    const products = payload ?? [];
     if (products.length === 0) {
       break;
     }
 
-    products.forEach((product) => {
+    products.forEach((product: any) => {
       const productCode = product.productCode?.trim();
       if (!productCode) return;
       if (!normalizedTargets.has(productCode)) return;
@@ -186,7 +241,8 @@ export async function fetchProductsByCodes(codes: string[]): Promise<SmaregiProd
         results.push({
           productCode: normalizedTargets.get(productCode) ?? productCode,
           productId: product.productId ?? null,
-          departmentId: product.departmentId ?? null,
+          // 複数の可能性のあるフィールド名を試す
+          departmentId: product.departmentId ?? product.divisionId ?? product.categoryId ?? null,
         });
         foundCodes.add(productCode);
       }
